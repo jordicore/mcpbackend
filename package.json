@@ -1,0 +1,14 @@
+{
+  "name": "autocab-scraper",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Autocab365 Power BI dashboard scraper using Puppeteer",
+  "main": "scraper.js",
+  "scripts": {
+    "start": "node scraper.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.3.1",
+    "puppeteer": "^23.1.1"
+  }
+}
