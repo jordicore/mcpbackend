@@ -53,18 +53,33 @@ async function deepCapture() {
   });
   console.log("✅ Logged in and on dashboard!");
 
-  // === POLL FOR IFRAMES ===
-  console.log("🔎 Searching for Power BI iframes (up to 90 s)...");
-  let iframeUrls = [];
-  for (let i = 0; i < 18; i++) {
-    iframeUrls = await page.evaluate(() =>
-      Array.from(document.querySelectorAll("iframe"))
-        .map(f => f.src)
-        .filter(u => u && u.includes("app.powerbi.com/reportEmbed"))
-    );
-    if (iframeUrls.length > 0) break;
-    await new Promise(r => setTimeout(r, 5000));
+  // === DYNAMIC NETWORK CAPTURE FOR IFRAMES ===
+console.log("🔎 Watching network for Power BI embed URLs...");
+const embedUrls = new Set();
+
+page.on("request", req => {
+  const url = req.url();
+  if (url.includes("app.powerbi.com/reportEmbed?")) {
+    embedUrls.add(url);
   }
+});
+
+let waited = 0;
+while (embedUrls.size === 0 && waited < 90000) {
+  await new Promise(r => setTimeout(r, 5000));
+  waited += 5000;
+  console.log(`⏳ Still waiting... (${waited / 1000}s)`);
+}
+
+const iframeUrls = Array.from(embedUrls);
+if (iframeUrls.length === 0) {
+  console.log("⚠️  No Power BI embed URLs detected after 90 s.");
+  await browser.close();
+  return;
+}
+
+console.log("✅ Detected Power BI embed URLs:", iframeUrls);
+
 
   if (iframeUrls.length === 0) {
     console.log("⚠️  No Power BI iframes found after 90 s.");
