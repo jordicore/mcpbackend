@@ -10,7 +10,7 @@ const ANALYTICS_URL = process.env.ANALYTICS_URL || "https://analytics.autocab365
 async function deepCapture() {
   console.log("🚀 Launching Puppeteer (Power BI Fetch Capture Mode)...");
   const browser = await puppeteer.launch({
-    headless: false, // 👈 set to false for visibility; change to "new" once confirmed
+    headless: "new",
     args: ["--no-sandbox", "--disable-setuid-sandbox"],
     defaultViewport: { width: 1400, height: 900 },
   });
