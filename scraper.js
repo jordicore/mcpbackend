@@ -58,34 +58,32 @@ async function deepCapture() {
   console.log("📊 Navigating to analytics...");
   const analyticsPage = await browser.newPage();
 
-  // Enable network monitoring
-  const client = await analyticsPage.target().createCDPSession();
-  await client.send("Network.enable");
+  // ✅ Attach a global network listener at the browser level
+  const cdp = await browser.target().createCDPSession();
+  await cdp.send("Network.enable");
 
   const captured = [];
 
-  client.on("Network.requestWillBeSent", (params) => {
+  cdp.on("Network.requestWillBeSent", (params) => {
     const url = params.request.url;
-    if (
-      url.includes("QueryExecutionService") &&
-      url.includes("/public/query")
-    ) {
+    if (url.includes("QueryExecutionService") && url.includes("/public/query")) {
       const auth = params.request.headers?.authorization || null;
       const body = params.request.postData || null;
       console.log("📡 Captured Power BI query:", url);
-
       captured.push({
         url,
         authorization: auth,
         body,
+        frameId: params.frameId,
         timestamp: new Date().toISOString(),
       });
     }
   });
 
-  await analyticsPage.goto(ANALYTICS_URL, { waitUntil: "networkidle2" });
-  console.log("🕵️ Monitoring Power BI traffic for 2 minutes...");
-  await new Promise(r => setTimeout(r, 120000));
+await analyticsPage.goto(ANALYTICS_URL, { waitUntil: "networkidle2" });
+console.log("🕵️ Monitoring ALL network traffic for 2 minutes...");
+await new Promise(r => setTimeout(r, 120000));
+
 
   if (captured.length > 0) {
     fs.writeFileSync("powerbi-queries.json", JSON.stringify(captured, null, 2));
