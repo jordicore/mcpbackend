@@ -1,102 +1,116 @@
 import puppeteer from "puppeteer";
 import fs from "fs";
 import dotenv from "dotenv";
+
 dotenv.config();
 
-const COMPANY_ID = process.env.COMPANY_ID;
-const USERNAME = process.env.USERNAME;
-const PASSWORD = process.env.PASSWORD;
-const ANALYTICS_URL = process.env.ANALYTICS_URL || "https://analytics.autocab365.com";
+const { COMPANY_ID, USERNAME, PASSWORD } = process.env;
 
-async function runScraper() {
-  console.log("🚀 Launching Puppeteer (Power BI Query Capture Mode)...");
-
+async function deepCapture() {
+  console.log("🚀 Launching Puppeteer (universal iframe capture mode)...");
   const browser = await puppeteer.launch({
     headless: "new",
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-web-security",
-      "--disable-features=IsolateOrigins,site-per-process",
-    ],
+    args: ["--no-sandbox", "--disable-setuid-sandbox"],
   });
 
   const page = await browser.newPage();
-  page.setDefaultNavigationTimeout(90000);
 
-  try {
-    console.log("🌐 Navigating to Autocab365 login page...");
-    await page.goto("https://portal.autocab365.com/#/login", { waitUntil: "networkidle2" });
+  // === LOGIN ===
+  await page.goto("https://portal.autocab365.com/#/login", {
+    waitUntil: "domcontentloaded",
+  });
 
-    // === Step 1: Enter company ID ===
-    console.log("🏢 Entering company ID...");
-    await page.waitForSelector("input[type='text']", { visible: true });
-    await page.type("input[type='text']", COMPANY_ID, { delay: 100 });
-    console.log("➡️ Clicking Continue...");
-    await Promise.all([
-      page.waitForNavigation({ waitUntil: "networkidle2" }),
-      page.click("button"),
-    ]);
+  console.log("🏢 Entering company ID...");
+  await page.waitForSelector("input[name='companyId']", { timeout: 20000 });
+  await page.type("input[name='companyId']", COMPANY_ID, { delay: 50 });
+  await page.evaluate(() => {
+    const btn = [...document.querySelectorAll("button")].find(b =>
+      /continue/i.test(b.innerText)
+    );
+    if (btn) btn.click();
+  });
 
-    // === Step 2: Enter username/password ===
-    console.log("⏳ Waiting for username/password fields...");
-    await page.waitForSelector("input[type='email'], input[name='username']", { visible: true });
-    await page.waitForSelector("input[type='password']", { visible: true });
+  console.log("⏳ Waiting for username/password fields...");
+  await page.waitForSelector("input[name='username']", { timeout: 20000 });
+  await page.waitForSelector("input[name='password']", { timeout: 20000 });
 
-    console.log("👤 Entering username...");
-    await page.type("input[type='email'], input[name='username']", USERNAME, { delay: 80 });
+  console.log("👤 Entering username...");
+  await page.type("input[name='username']", USERNAME, { delay: 50 });
+  console.log("🔐 Entering password...");
+  await page.type("input[name='password']", PASSWORD, { delay: 50 });
 
-    console.log("🔐 Entering password...");
-    await page.type("input[type='password']", PASSWORD, { delay: 80 });
+  console.log("🖱️ Clicking Log In...");
+  await page.evaluate(() => {
+    const btn = [...document.querySelectorAll("button")].find(b =>
+      /log\s?in/i.test(b.innerText)
+    );
+    if (btn) btn.click();
+  });
 
-    console.log("🖱️ Clicking Log In...");
-    await Promise.all([
-      page.waitForNavigation({ waitUntil: "networkidle2" }),
-      page.click("button[type='submit']"),
-    ]);
+  console.log("⏳ Waiting for dashboard (# in URL)...");
+  await page.waitForFunction(() => window.location.href.includes("#/"), {
+    timeout: 60000,
+  });
+  console.log("✅ Logged in and on dashboard!");
 
-    // === Step 3: Wait for dashboard ===
-    console.log("⏳ Waiting for portal dashboard (# in URL)...");
-    await page.waitForFunction(() => window.location.href.includes("#"), { timeout: 60000 });
-    console.log("✅ Logged in and on dashboard!");
+  // === POLL FOR IFRAMES ===
+  console.log("🔎 Searching for Power BI iframes (up to 90 s)...");
+  let iframeUrls = [];
+  for (let i = 0; i < 18; i++) {
+    iframeUrls = await page.evaluate(() =>
+      Array.from(document.querySelectorAll("iframe"))
+        .map(f => f.src)
+        .filter(u => u && u.includes("app.powerbi.com/reportEmbed"))
+    );
+    if (iframeUrls.length > 0) break;
+    await new Promise(r => setTimeout(r, 5000));
+  }
 
-    // === Step 4: Navigate to analytics.autocab365.com ===
-    console.log("📊 Navigating to analytics...");
-    const analyticsPage = await browser.newPage();
-    await analyticsPage.goto(ANALYTICS_URL, { waitUntil: "networkidle2" });
+  if (iframeUrls.length === 0) {
+    console.log("⚠️  No Power BI iframes found after 90 s.");
+    await browser.close();
+    return;
+  }
 
-    // === Step 5: Capture Power BI queries ===
-    console.log("🕵️ Watching for Power BI QueryExecutionService calls...");
-    const captured = [];
+  console.log("✅ Found Power BI iframes:", iframeUrls);
+  const captured = [];
 
-    analyticsPage.on("request", (req) => {
-      const url = req.url();
-      if (url.includes("QueryExecutionService") && url.endsWith("/query")) {
+  // === VISIT EACH IFRAME ===
+  for (const url of iframeUrls) {
+    console.log(`🌐 Opening ${url}`);
+    const iframePage = await browser.newPage();
+    const client = await iframePage.target().createCDPSession();
+    await client.send("Network.enable");
+
+    client.on("Network.requestWillBeSent", (params) => {
+      const u = params.request.url;
+      if (u.includes("pbidedicated.windows.net")) {
         captured.push({
-          url,
-          headers: req.headers(),
-          body: req.postData(),
+          iframe: url,
+          target: u,
+          method: params.request.method,
+          headers: params.request.headers,
+          body: params.request.postData || null,
+          timestamp: new Date().toISOString(),
         });
-        console.log("📡 Captured Power BI query:", url);
       }
     });
 
-    console.log("⏳ Monitoring network for 120s...");
-    await new Promise((r) => setTimeout(r, 120000));
-
-    // === Step 6: Save results ===
-    if (captured.length === 0) {
-      console.log("⚠️ No Power BI queries captured.");
-    } else {
-      fs.writeFileSync("powerbi-queries.json", JSON.stringify(captured, null, 2));
-      console.log(`💾 Saved ${captured.length} Power BI queries to powerbi-queries.json`);
+    try {
+      await iframePage.goto(url, { waitUntil: "networkidle2", timeout: 90000 });
+      console.log("⏳ Monitoring traffic for 45 s...");
+      await new Promise(r => setTimeout(r, 45000));
+    } catch (e) {
+      console.warn(`⚠️ Failed to load ${url}:`, e.message);
     }
-  } catch (err) {
-    console.error("❌ Error:", err);
-  } finally {
-    await browser.close();
-    console.log("✅ Done.");
+
+    await iframePage.close();
   }
+
+  fs.writeFileSync("deep-capture.json", JSON.stringify(captured, null, 2));
+  console.log(`💾 Saved ${captured.length} Power BI network events`);
+  await browser.close();
+  console.log("✅ Done.");
 }
 
-runScraper();
+deepCapture().catch(err => console.error("❌ Error:", err));
