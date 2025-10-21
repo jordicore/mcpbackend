@@ -8,7 +8,7 @@ const { COMPANY_ID, USERNAME, PASSWORD } = process.env;
 const ANALYTICS_URL = process.env.ANALYTICS_URL || "https://analytics.autocab365.com";
 
 async function deepCapture() {
-  console.log("🚀 Launching Puppeteer (multi-target Power BI capture mode)...");
+  console.log("🚀 Launching Puppeteer (lazy Power BI capture mode)...");
   const browser = await puppeteer.launch({
     headless: "new",
     args: ["--no-sandbox", "--disable-setuid-sandbox"],
@@ -54,48 +54,66 @@ async function deepCapture() {
   });
   console.log("✅ Logged in and on dashboard!");
 
-  // === OPEN ANALYTICS ===
+  // === NAVIGATE TO ANALYTICS ===
   console.log("📊 Navigating to analytics...");
   const analyticsPage = await browser.newPage();
   await analyticsPage.goto(ANALYTICS_URL, { waitUntil: "domcontentloaded" });
 
-  const captured = [];
-
-  // Helper to attach a CDP listener to a given target
-  async function attachToTarget(target) {
-    try {
-      const session = await target.createCDPSession();
-      await session.send("Network.enable");
-      session.on("Network.requestWillBeSent", (params) => {
-        const url = params.request.url;
-        if (url.includes("QueryExecutionService") && url.includes("/public/query")) {
-          const auth = params.request.headers?.authorization || null;
-          const body = params.request.postData || null;
-          console.log("📡 Captured Power BI query:", url);
-          captured.push({
-            url,
-            authorization: auth,
-            body,
-            frameId: params.frameId,
-            targetType: target.type(),
-            timestamp: new Date().toISOString(),
-          });
-        }
-      });
-    } catch (err) {
-      // Some internal targets (like workers) don't allow Network domain
+  // === Try clicking all tab headers until the Power BI iframe appears ===
+  console.log("🧭 Clicking tab headers until iframe loads...");
+  for (let i = 0; i < 12; i++) {
+    const tabs = await analyticsPage.$$("[class*='tab'], [class*='Tab'], .tabset-tab");
+    for (const tab of tabs) {
+      try {
+        await tab.click({ delay: 100 });
+        await analyticsPage.waitForTimeout(2000);
+      } catch {}
     }
+
+    const iframeUrls = await analyticsPage.evaluate(() =>
+      Array.from(document.querySelectorAll("iframe"))
+        .map(f => f.src)
+        .filter(u => u && u.includes("app.powerbi.com/reportEmbed"))
+    );
+    if (iframeUrls.length > 0) {
+      console.log("✅ Power BI iframe detected:", iframeUrls);
+      break;
+    }
+
+    console.log(`⏳ No iframe yet... (${(i + 1) * 5}s)`);
+    await analyticsPage.waitForTimeout(5000);
   }
 
-  // Attach to all existing targets
-  for (const t of browser.targets()) await attachToTarget(t);
-  // Also attach to any new ones that appear (e.g. Power BI iframes)
-  browser.on("targetcreated", attachToTarget);
+  // === Attach network listener to the Power BI frame target ===
+  const captured = [];
+  const powerbiTarget = await browser.waitForTarget(t =>
+    t.url().includes("app.powerbi.com/reportEmbed")
+  );
 
-  console.log("🕵️ Monitoring all browser targets for 3 minutes...");
-  for (let i = 0; i < 12; i++) {
-    console.log(`⏳ Still watching... (${(i + 1) * 15}s)`);
-    await new Promise((r) => setTimeout(r, 15000));
+  if (!powerbiTarget) {
+    console.log("⚠️ Could not find Power BI frame target.");
+  } else {
+    console.log("🔗 Attached to Power BI frame target.");
+    const session = await powerbiTarget.createCDPSession();
+    await session.send("Network.enable");
+
+    session.on("Network.requestWillBeSent", (params) => {
+      const url = params.request.url;
+      if (url.includes("QueryExecutionService") && url.includes("/public/query")) {
+        const auth = params.request.headers?.authorization || null;
+        const body = params.request.postData || null;
+        console.log("📡 Captured Power BI query:", url);
+        captured.push({
+          url,
+          authorization: auth,
+          body,
+          timestamp: new Date().toISOString(),
+        });
+      }
+    });
+
+    console.log("🕵️ Monitoring Power BI traffic for 2 minutes...");
+    await new Promise((r) => setTimeout(r, 120000));
   }
 
   if (captured.length > 0) {
