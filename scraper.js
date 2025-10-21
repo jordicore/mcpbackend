@@ -15,37 +15,17 @@ async function deepCapture() {
   });
 
   const page = await browser.newPage();
-  const client = await page.target().createCDPSession();
-
-  await client.send("Network.enable");
-  await client.send("Page.enable");
-
-  // Track Power BI requests
-  let captured = [];
-  client.on("Network.requestWillBeSent", (p) => {
-    const u = p.request.url;
-    if (u.includes("pbidedicated.windows.net") || u.includes("powerbi.com")) {
-      captured.push({
-        type: "request",
-        url: u,
-        method: p.request.method,
-        body: p.request.postData || null,
-        timestamp: new Date().toISOString(),
-      });
-    }
+  await page.goto("https://portal.autocab365.com/#/login", {
+    waitUntil: "domcontentloaded",
   });
-
-  // === STEP 1: LOGIN ===
-  console.log("🌐 Navigating to Autocab365 login page...");
-  await page.goto("https://portal.autocab365.com/#/login", { waitUntil: "domcontentloaded" });
 
   console.log("🏢 Entering company ID...");
   await page.waitForSelector("input[name='companyId']", { timeout: 15000 });
   await page.type("input[name='companyId']", COMPANY_ID, { delay: 50 });
-
-  console.log("➡️ Clicking Continue...");
   await page.evaluate(() => {
-    const btn = document.querySelector("button, input[type='submit']");
+    const btn = [...document.querySelectorAll("button")].find((b) =>
+      /continue/i.test(b.innerText)
+    );
     if (btn) btn.click();
   });
 
@@ -61,51 +41,59 @@ async function deepCapture() {
 
   console.log("🖱️ Clicking Log In...");
   await page.evaluate(() => {
-    const btns = Array.from(document.querySelectorAll("button"));
-    const loginBtn = btns.find((b) => /log in/i.test(b.innerText));
-    if (loginBtn) loginBtn.click();
+    const btn = [...document.querySelectorAll("button")].find((b) =>
+      /log\s?in/i.test(b.innerText)
+    );
+    if (btn) btn.click();
   });
 
   console.log("⏳ Waiting for portal dashboard (# in URL)...");
-  await page.waitForFunction(() => window.location.href.includes("#/"), { timeout: 60000 });
+  await page.waitForFunction(() => window.location.href.includes("#/"), {
+    timeout: 60000,
+  });
   console.log("✅ Logged in and on dashboard!");
 
-  // === STEP 2: TRANSFER SESSION TO ANALYTICS ===
-  console.log("🍪 Extracting cookies from portal...");
-  const cookies = await page.cookies();
-  console.log(`🍪 Retrieved ${cookies.length} cookies.`);
+  // === STEP 2: Extract MWCToken from localStorage ===
+  console.log("🔍 Extracting MWCToken from localStorage...");
+  const token = await page.evaluate(() => localStorage.getItem("MWCToken"));
+  if (!token) {
+    console.error("❌ No MWCToken found in localStorage!");
+    await browser.close();
+    return;
+  }
+  console.log("✅ MWCToken found:", token.substring(0, 40) + "...");
 
-  console.log("🆕 Opening new tab for analytics...");
+  // === STEP 3: Open analytics with Authorization header ===
+  console.log("📊 Opening analytics.autocab365.com with auth header...");
   const analyticsPage = await browser.newPage();
+  await analyticsPage.setExtraHTTPHeaders({
+    Authorization: `MWCToken ${token}`,
+  });
 
-  // Convert cookies for analytics domain
-  const updatedCookies = cookies.map((c) => ({
-    ...c,
-    domain: ".autocab365.com", // allow cross-subdomain
-  }));
-  await analyticsPage.setCookie(...updatedCookies);
-  console.log("✅ Cookies transferred to analytics.autocab365.com");
-
-  console.log("📊 Navigating to analytics...");
-  await analyticsPage.goto(ANALYTICS_URL, { waitUntil: "networkidle2" });
-
-  console.log("🕵️ Monitoring Power BI traffic for 2 minutes...");
-  const analyticsClient = await analyticsPage.target().createCDPSession();
-  await analyticsClient.send("Network.enable");
-
-  analyticsClient.on("Network.requestWillBeSent", (p) => {
-    const u = p.request.url;
-    if (u.includes("pbidedicated.windows.net") || u.includes("powerbi.com")) {
+  // Track Power BI requests
+  const client = await analyticsPage.target().createCDPSession();
+  await client.send("Network.enable");
+  let captured = [];
+  client.on("Network.requestWillBeSent", (params) => {
+    const u = params.request.url;
+    if (
+      u.includes("pbidedicated.windows.net") ||
+      u.includes("powerbi.com") ||
+      u.includes("QueryExecutionService")
+    ) {
       captured.push({
-        type: "request",
         url: u,
-        method: p.request.method,
-        body: p.request.postData || null,
+        method: params.request.method,
+        headers: params.request.headers,
+        body: params.request.postData || null,
         timestamp: new Date().toISOString(),
       });
     }
   });
 
+  await analyticsPage.goto(ANALYTICS_URL, { waitUntil: "networkidle2" });
+
+  console.log("⏳ Waiting 2 minutes for Power BI traffic...");
   await new Promise((r) => setTimeout(r, 120000));
 
   console.log(`💾 Captured ${captured.length} Power BI network events`);
@@ -115,4 +103,6 @@ async function deepCapture() {
   console.log("✅ Done. Results saved to deep-capture.json");
 }
 
-deepCapture().catch((e) => console.error("❌ Error:", e));
+deepCapture().catch((err) => {
+  console.error("❌ Error:", err);
+});
