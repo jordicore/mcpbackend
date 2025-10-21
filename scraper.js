@@ -4,7 +4,8 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const { COMPANY_ID, USERNAME, PASSWORD, ANALYTICS_URL } = process.env;
+const { COMPANY_ID, USERNAME, PASSWORD } = process.env;
+const ANALYTICS_URL = "https://analytics.autocab365.com/";
 
 async function deepCapture() {
   console.log("🚀 Launching Puppeteer (deep capture mode)...");
@@ -18,8 +19,8 @@ async function deepCapture() {
 
   await client.send("Network.enable");
   await client.send("Page.enable");
-  await client.send("Runtime.enable");
 
+  // Track Power BI requests
   let captured = [];
   client.on("Network.requestWillBeSent", (p) => {
     const u = p.request.url;
@@ -33,23 +34,10 @@ async function deepCapture() {
       });
     }
   });
-  client.on("Network.responseReceived", (p) => {
-    const u = p.response.url;
-    if (u.includes("pbidedicated.windows.net") || u.includes("powerbi.com")) {
-      captured.push({
-        type: "response",
-        url: u,
-        status: p.response.status,
-        timestamp: new Date().toISOString(),
-      });
-    }
-  });
 
-  // === STEP 1: COMPANY ID ===
+  // === STEP 1: LOGIN ===
   console.log("🌐 Navigating to Autocab365 login page...");
-  await page.goto("https://portal.autocab365.com/#/login", {
-    waitUntil: "domcontentloaded",
-  });
+  await page.goto("https://portal.autocab365.com/#/login", { waitUntil: "domcontentloaded" });
 
   console.log("🏢 Entering company ID...");
   await page.waitForSelector("input[name='companyId']", { timeout: 15000 });
@@ -65,7 +53,6 @@ async function deepCapture() {
   await page.waitForSelector("input[name='username']", { timeout: 20000 });
   await page.waitForSelector("input[name='password']", { timeout: 20000 });
 
-  // === STEP 2: USERNAME + PASSWORD ===
   console.log("👤 Entering username...");
   await page.type("input[name='username']", USERNAME, { delay: 50 });
 
@@ -75,25 +62,50 @@ async function deepCapture() {
   console.log("🖱️ Clicking Log In...");
   await page.evaluate(() => {
     const btns = Array.from(document.querySelectorAll("button"));
-    const loginBtn =
-      btns.find((b) => /log in/i.test(b.innerText)) ||
-      btns.find((b) => /login/i.test(b.innerText));
+    const loginBtn = btns.find((b) => /log in/i.test(b.innerText));
     if (loginBtn) loginBtn.click();
   });
 
-  console.log("⏳ Waiting for portal redirect...");
-  try {
-    await page.waitForNavigation({ waitUntil: "networkidle2", timeout: 60000 });
-    console.log("✅ Logged in successfully!");
-  } catch {
-    console.warn("⚠️ Login may have succeeded silently — continuing...");
-  }
+  console.log("⏳ Waiting for portal dashboard (# in URL)...");
+  await page.waitForFunction(() => window.location.href.includes("#/"), { timeout: 60000 });
+  console.log("✅ Logged in and on dashboard!");
 
-  // === STEP 3: ANALYTICS ===
+  // === STEP 2: TRANSFER SESSION TO ANALYTICS ===
+  console.log("🍪 Extracting cookies from portal...");
+  const cookies = await page.cookies();
+  console.log(`🍪 Retrieved ${cookies.length} cookies.`);
+
+  console.log("🆕 Opening new tab for analytics...");
+  const analyticsPage = await browser.newPage();
+
+  // Convert cookies for analytics domain
+  const updatedCookies = cookies.map((c) => ({
+    ...c,
+    domain: ".autocab365.com", // allow cross-subdomain
+  }));
+  await analyticsPage.setCookie(...updatedCookies);
+  console.log("✅ Cookies transferred to analytics.autocab365.com");
+
   console.log("📊 Navigating to analytics...");
-  await page.goto(ANALYTICS_URL, { waitUntil: "networkidle2" });
+  await analyticsPage.goto(ANALYTICS_URL, { waitUntil: "networkidle2" });
 
-  console.log("🕵️ Monitoring all network events for 2 minutes...");
+  console.log("🕵️ Monitoring Power BI traffic for 2 minutes...");
+  const analyticsClient = await analyticsPage.target().createCDPSession();
+  await analyticsClient.send("Network.enable");
+
+  analyticsClient.on("Network.requestWillBeSent", (p) => {
+    const u = p.request.url;
+    if (u.includes("pbidedicated.windows.net") || u.includes("powerbi.com")) {
+      captured.push({
+        type: "request",
+        url: u,
+        method: p.request.method,
+        body: p.request.postData || null,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
   await new Promise((r) => setTimeout(r, 120000));
 
   console.log(`💾 Captured ${captured.length} Power BI network events`);
