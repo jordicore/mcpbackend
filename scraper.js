@@ -58,13 +58,14 @@ async function deepCapture() {
   console.log("📊 Navigating to analytics...");
   const analyticsPage = await browser.newPage();
 
-  // ✅ Attach a global network listener at the browser level
-  const cdp = await browser.target().createCDPSession();
-  await cdp.send("Network.enable");
+  // ✅ Create CDP session bound to this page (captures iframes too)
+  const client = await analyticsPage.target().createCDPSession();
+  await client.send("Network.enable");
 
   const captured = [];
 
-  cdp.on("Network.requestWillBeSent", (params) => {
+  // Listen to every network request at the analytics page level
+  client.on("Network.requestWillBeSent", (params) => {
     const url = params.request.url;
     if (url.includes("QueryExecutionService") && url.includes("/public/query")) {
       const auth = params.request.headers?.authorization || null;
@@ -80,10 +81,9 @@ async function deepCapture() {
     }
   });
 
-await analyticsPage.goto(ANALYTICS_URL, { waitUntil: "networkidle2" });
-console.log("🕵️ Monitoring ALL network traffic for 2 minutes...");
-await new Promise(r => setTimeout(r, 120000));
-
+  await analyticsPage.goto(ANALYTICS_URL, { waitUntil: "networkidle2" });
+  console.log("🕵️ Monitoring network traffic (including iframes) for 2 minutes...");
+  await new Promise((r) => setTimeout(r, 120000));
 
   if (captured.length > 0) {
     fs.writeFileSync("powerbi-queries.json", JSON.stringify(captured, null, 2));
@@ -96,4 +96,4 @@ await new Promise(r => setTimeout(r, 120000));
   console.log("✅ Done.");
 }
 
-deepCapture().catch(err => console.error("❌ Error:", err));
+deepCapture().catch((err) => console.error("❌ Error:", err));
