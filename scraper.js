@@ -29,23 +29,35 @@ async function runScraper() {
     console.log("🌐 Navigating to Autocab365 login page...");
     await page.goto("https://portal.autocab365.com/#/login", { waitUntil: "networkidle2" });
 
-    // === Step 1: Enter Company ID ===
-    console.log("🏢 Entering company ID...");
-    await page.waitForSelector("input[type='text']", { visible: true });
-    await page.type("input[type='text']", COMPANY_ID, { delay: 100 });
+// === Step 1: Enter Company ID ===
+console.log("🏢 Entering company ID...");
+await page.waitForSelector("input[type='text']", { visible: true });
+await page.type("input[type='text']", COMPANY_ID, { delay: 100 });
 
-    // Find the visible Continue/Submit button
-    const continueBtn = await page.$("button[type='submit'], button:has-text('Continue'), button:not([disabled])");
-    if (continueBtn) {
-      await continueBtn.evaluate(el => el.scrollIntoView({ behavior: "smooth", block: "center" }));
-      console.log("➡️ Clicking Continue...");
-      await Promise.all([
-        page.waitForNavigation({ waitUntil: "networkidle2" }),
-        continueBtn.click({ delay: 50 }),
-      ]);
-    } else {
-      throw new Error("❌ Could not find Continue button after entering company ID");
-    }
+// Find the first visible, enabled button and click it
+const buttons = await page.$$("button");
+let clicked = false;
+
+for (const btn of buttons) {
+  const text = await page.evaluate(el => el.innerText.trim(), btn);
+  const disabled = await page.evaluate(el => el.disabled, btn);
+
+  if (!disabled && /continue/i.test(text)) {
+    await btn.evaluate(el => el.scrollIntoView({ behavior: "smooth", block: "center" }));
+    console.log(`➡️ Clicking Continue button ("${text}")...`);
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: "networkidle2" }),
+      btn.click({ delay: 50 }),
+    ]);
+    clicked = true;
+    break;
+  }
+}
+
+if (!clicked) {
+  throw new Error("❌ Could not find visible Continue button after entering company ID");
+}
+
 
 
     // === Step 2: Enter Username and Password ===
