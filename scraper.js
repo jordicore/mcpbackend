@@ -5,16 +5,17 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const { COMPANY_ID, USERNAME, PASSWORD } = process.env;
-const ANALYTICS_URL = "https://analytics.autocab365.com/";
 
 async function deepCapture() {
-  console.log("🚀 Launching Puppeteer (iframe capture mode)...");
+  console.log("🚀 Launching Puppeteer (targeted iframe capture mode)...");
   const browser = await puppeteer.launch({
     headless: "new",
     args: ["--no-sandbox", "--disable-setuid-sandbox"],
   });
 
   const page = await browser.newPage();
+
+  // === LOGIN PHASE ===
   await page.goto("https://portal.autocab365.com/#/login", {
     waitUntil: "domcontentloaded",
   });
@@ -35,7 +36,6 @@ async function deepCapture() {
 
   console.log("👤 Entering username...");
   await page.type("input[name='username']", USERNAME, { delay: 50 });
-
   console.log("🔐 Entering password...");
   await page.type("input[name='password']", PASSWORD, { delay: 50 });
 
@@ -53,56 +53,60 @@ async function deepCapture() {
   });
   console.log("✅ Logged in and on dashboard!");
 
-  // === Step 2: Find Power BI iframes ===
-  console.log("🔎 Locating Power BI iframes...");
-  await page.waitForTimeout(10000); // allow time for iframes to load
-  const iframeUrls = await page.evaluate(() =>
-    Array.from(document.querySelectorAll("iframe"))
-      .map(f => f.src)
-      .filter(u => u && u.includes("app.powerbi.com"))
-  );
-  console.log("✅ Found Power BI iframes:", iframeUrls);
+  // === FIND TARGETED IFRAME ===
+  console.log("🔎 Waiting for specific Power BI iframe to appear...");
+  let iframeUrl = null;
+
+  for (let i = 0; i < 20; i++) {
+    iframeUrl = await page.evaluate(() => {
+      const iframe = document.querySelector("div[id*='987d0151'] iframe");
+      return iframe ? iframe.src : null;
+    });
+    if (iframeUrl) break;
+    await new Promise(r => setTimeout(r, 3000));
+  }
+
+  if (!iframeUrl) {
+    console.log("⚠️ Could not find iframe with ID 987d0151... Retrying later?");
+    await browser.close();
+    return;
+  }
+
+  console.log("✅ Found iframe:", iframeUrl);
+
+  // === CAPTURE TRAFFIC ===
+  const iframePage = await browser.newPage();
+  const client = await iframePage.target().createCDPSession();
+  await client.send("Network.enable");
 
   const captured = [];
-
-  for (const url of iframeUrls) {
-    console.log(`🌐 Opening iframe ${url}`);
-    const iframePage = await browser.newPage();
-
-    const client = await iframePage.target().createCDPSession();
-    await client.send("Network.enable");
-
-    client.on("Network.requestWillBeSent", (params) => {
-      const u = params.request.url;
-      if (u.includes("pbidedicated.windows.net")) {
-        captured.push({
-          iframe: url,
-          method: params.request.method,
-          target: u,
-          headers: params.request.headers,
-          body: params.request.postData || null,
-          timestamp: new Date().toISOString(),
-        });
-      }
-    });
-
-    try {
-      await iframePage.goto(url, { waitUntil: "networkidle2", timeout: 60000 });
-      console.log(`⏳ Watching ${url} for Power BI queries...`);
-      await new Promise((r) => setTimeout(r, 30000));
-    } catch (e) {
-      console.warn(`⚠️ Failed to load iframe ${url}:`, e.message);
+  client.on("Network.requestWillBeSent", (params) => {
+    const u = params.request.url;
+    if (u.includes("pbidedicated.windows.net")) {
+      captured.push({
+        target: u,
+        method: params.request.method,
+        headers: params.request.headers,
+        body: params.request.postData || null,
+        timestamp: new Date().toISOString(),
+      });
     }
+  });
 
-    await iframePage.close();
+  console.log("📊 Opening Power BI report...");
+  try {
+    await iframePage.goto(iframeUrl, { waitUntil: "networkidle2", timeout: 90000 });
+    console.log("⏳ Monitoring traffic for 45 seconds...");
+    await new Promise(r => setTimeout(r, 45000));
+  } catch (e) {
+    console.warn("⚠️ Power BI page load issue:", e.message);
   }
 
   fs.writeFileSync("deep-capture.json", JSON.stringify(captured, null, 2));
   console.log(`💾 Saved ${captured.length} Power BI network events`);
+
   await browser.close();
   console.log("✅ Done.");
 }
 
-deepCapture().catch((err) => {
-  console.error("❌ Error:", err);
-});
+deepCapture().catch(err => console.error("❌ Error:", err));
