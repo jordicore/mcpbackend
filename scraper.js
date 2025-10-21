@@ -30,13 +30,23 @@ async function runScraper() {
     await page.goto("https://portal.autocab365.com/#/login", { waitUntil: "networkidle2" });
 
     // === Step 1: Enter Company ID ===
+    console.log("🏢 Entering company ID...");
     await page.waitForSelector("input[type='text']", { visible: true });
     await page.type("input[type='text']", COMPANY_ID, { delay: 100 });
-    console.log("🏢 Entering company ID...");
-    await Promise.all([
-      page.waitForNavigation({ waitUntil: "networkidle2" }),
-      page.click("button"),
-    ]);
+
+    // Find the visible Continue/Submit button
+    const continueBtn = await page.$("button[type='submit'], button:has-text('Continue'), button:not([disabled])");
+    if (continueBtn) {
+      await continueBtn.evaluate(el => el.scrollIntoView({ behavior: "smooth", block: "center" }));
+      console.log("➡️ Clicking Continue...");
+      await Promise.all([
+        page.waitForNavigation({ waitUntil: "networkidle2" }),
+        continueBtn.click({ delay: 50 }),
+      ]);
+    } else {
+      throw new Error("❌ Could not find Continue button after entering company ID");
+    }
+
 
     // === Step 2: Enter Username and Password ===
     console.log("⏳ Waiting for username/password fields...");
