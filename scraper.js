@@ -5,9 +5,10 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const { COMPANY_ID, USERNAME, PASSWORD } = process.env;
+const ANALYTICS_URL = process.env.ANALYTICS_URL || "https://analytics.autocab365.com";
 
 async function deepCapture() {
-  console.log("🚀 Launching Puppeteer (universal iframe capture mode)...");
+  console.log("🚀 Launching Puppeteer (Power BI Query Capture Mode)...");
   const browser = await puppeteer.launch({
     headless: "new",
     args: ["--no-sandbox", "--disable-setuid-sandbox"],
@@ -53,62 +54,46 @@ async function deepCapture() {
   });
   console.log("✅ Logged in and on dashboard!");
 
-  // === POLL FOR IFRAMES ===
-  console.log("🔎 Searching for Power BI iframes (up to 90 s)...");
-  let iframeUrls = [];
-  for (let i = 0; i < 18; i++) {
-    iframeUrls = await page.evaluate(() =>
-      Array.from(document.querySelectorAll("iframe"))
-        .map(f => f.src)
-        .filter(u => u && u.includes("app.powerbi.com/reportEmbed"))
-    );
-    if (iframeUrls.length > 0) break;
-    await new Promise(r => setTimeout(r, 5000));
-  }
+  // === NAVIGATE TO ANALYTICS ===
+  console.log("📊 Navigating to analytics...");
+  const analyticsPage = await browser.newPage();
 
-  if (iframeUrls.length === 0) {
-    console.log("⚠️  No Power BI iframes found after 90 s.");
-    await browser.close();
-    return;
-  }
+  // Enable network monitoring
+  const client = await analyticsPage.target().createCDPSession();
+  await client.send("Network.enable");
 
-  console.log("✅ Found Power BI iframes:", iframeUrls);
   const captured = [];
 
-  // === VISIT EACH IFRAME ===
-  for (const url of iframeUrls) {
-    console.log(`🌐 Opening ${url}`);
-    const iframePage = await browser.newPage();
-    const client = await iframePage.target().createCDPSession();
-    await client.send("Network.enable");
+  client.on("Network.requestWillBeSent", (params) => {
+    const url = params.request.url;
+    if (
+      url.includes("QueryExecutionService") &&
+      url.includes("/public/query")
+    ) {
+      const auth = params.request.headers?.authorization || null;
+      const body = params.request.postData || null;
+      console.log("📡 Captured Power BI query:", url);
 
-    client.on("Network.requestWillBeSent", (params) => {
-      const u = params.request.url;
-      if (u.includes("pbidedicated.windows.net")) {
-        captured.push({
-          iframe: url,
-          target: u,
-          method: params.request.method,
-          headers: params.request.headers,
-          body: params.request.postData || null,
-          timestamp: new Date().toISOString(),
-        });
-      }
-    });
-
-    try {
-      await iframePage.goto(url, { waitUntil: "networkidle2", timeout: 90000 });
-      console.log("⏳ Monitoring traffic for 45 s...");
-      await new Promise(r => setTimeout(r, 45000));
-    } catch (e) {
-      console.warn(`⚠️ Failed to load ${url}:`, e.message);
+      captured.push({
+        url,
+        authorization: auth,
+        body,
+        timestamp: new Date().toISOString(),
+      });
     }
+  });
 
-    await iframePage.close();
+  await analyticsPage.goto(ANALYTICS_URL, { waitUntil: "networkidle2" });
+  console.log("🕵️ Monitoring Power BI traffic for 2 minutes...");
+  await new Promise(r => setTimeout(r, 120000));
+
+  if (captured.length > 0) {
+    fs.writeFileSync("powerbi-queries.json", JSON.stringify(captured, null, 2));
+    console.log(`💾 Saved ${captured.length} Power BI query requests to powerbi-queries.json`);
+  } else {
+    console.log("⚠️ No Power BI /public/query requests detected.");
   }
 
-  fs.writeFileSync("deep-capture.json", JSON.stringify(captured, null, 2));
-  console.log(`💾 Saved ${captured.length} Power BI network events`);
   await browser.close();
   console.log("✅ Done.");
 }
