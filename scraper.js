@@ -50,10 +50,26 @@ async function deepCapture() {
   await debugShot(page, "login-form-visible");
 
   console.log("👤 Entering username...");
-  await page.type("input[name='username']", USERNAME, { delay: 50 });
-  console.log("🔐 Entering password...");
-  await page.type("input[name='password']", PASSWORD, { delay: 50 });
-  await debugShot(page, "credentials-entered");
+// Wait for the field to be fully ready
+await page.waitForSelector("input[name='username']", { visible: true });
+
+// Clear any prefilled text completely
+await page.click("input[name='username']", { clickCount: 3 });
+await page.keyboard.press("Backspace");
+
+// Type the username slowly
+for (const ch of USERNAME) {
+  await page.type("input[name='username']", ch, { delay: 100 });
+}
+
+console.log("🔐 Entering password...");
+await page.click("input[name='password']", { clickCount: 3 });
+await page.keyboard.press("Backspace");
+
+for (const ch of PASSWORD) {
+  await page.type("input[name='password']", ch, { delay: 100 });
+}
+
 
   console.log("🖱️ Clicking Log In...");
   await page.evaluate(() => {
