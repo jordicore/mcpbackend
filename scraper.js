@@ -12,17 +12,13 @@ async function deepCapture() {
     headless: "new",
     args: ["--no-sandbox", "--disable-setuid-sandbox"],
   });
+
   const page = await browser.newPage();
   const client = await page.target().createCDPSession();
 
   await client.send("Network.enable");
   await client.send("Page.enable");
   await client.send("Runtime.enable");
-  await client.send("Target.setAutoAttach", {
-    autoAttach: true,
-    waitForDebuggerOnStart: false,
-    flatten: true,
-  });
 
   let captured = [];
   client.on("Network.requestWillBeSent", (p) => {
@@ -49,75 +45,62 @@ async function deepCapture() {
     }
   });
 
-  // --- LOGIN SEQUENCE ---
+  // === STEP 1: COMPANY ID ===
   console.log("🌐 Navigating to Autocab365 login page...");
-  await page.goto("https://portal.autocab365.com/#/login", { waitUntil: "domcontentloaded" });
+  await page.goto("https://portal.autocab365.com/#/login", {
+    waitUntil: "domcontentloaded",
+  });
 
-  // Log existing inputs for debugging
-  const inputs = await page.$$eval("input", els => els.map(e => e.name || e.id || e.placeholder));
-  console.log("🔎 Found input fields:", inputs);
+  console.log("🏢 Entering company ID...");
+  await page.waitForSelector("input[name='companyId']", { timeout: 15000 });
+  await page.type("input[name='companyId']", COMPANY_ID, { delay: 50 });
 
-  // Type companyId if exists
-  if (await page.$("input[name='companyId']")) {
-    console.log("🏢 Entering company ID...");
-    await page.type("input[name='companyId']", COMPANY_ID, { delay: 50 });
-  }
+  console.log("➡️ Clicking Continue...");
+  await page.evaluate(() => {
+    const btn = document.querySelector("button, input[type='submit']");
+    if (btn) btn.click();
+  });
 
-  // Type username
-  const userSel = (await page.$("input[name='username']")) || (await page.$("input#username"));
-  if (userSel) {
-    console.log("👤 Entering username...");
-    await userSel.type(USERNAME, { delay: 50 });
-  } else {
-    console.warn("⚠️ Username field not found!");
-  }
+  console.log("⏳ Waiting for username/password fields...");
+  await page.waitForSelector("input[name='username']", { timeout: 20000 });
+  await page.waitForSelector("input[name='password']", { timeout: 20000 });
 
-  // Type password
-  const passSel = (await page.$("input[name='password']")) || (await page.$("input#password"));
-  if (passSel) {
-    console.log("🔐 Entering password...");
-    await passSel.type(PASSWORD, { delay: 50 });
-  } else {
-    console.warn("⚠️ Password field not found!");
-  }
+  // === STEP 2: USERNAME + PASSWORD ===
+  console.log("👤 Entering username...");
+  await page.type("input[name='username']", USERNAME, { delay: 50 });
 
-  // Try clicking login / continue button
-  const buttonSelectors = [
-    "button[type='submit']",
-    "button:has-text('Continue')",
-    "button:has-text('Login')",
-    "button:has-text('Log in')",
-  ];
-  let clicked = false;
-  for (const sel of buttonSelectors) {
-    const found = await page.$(sel);
-    if (found) {
-      console.log(`✅ Clicking ${sel}`);
-      await found.click();
-      clicked = true;
-      break;
-    }
-  }
-  if (!clicked) console.warn("⚠️ No login button found, maybe automatic submit?");
+  console.log("🔐 Entering password...");
+  await page.type("input[name='password']", PASSWORD, { delay: 50 });
 
-  console.log("⏳ Waiting for navigation or analytics redirect...");
+  console.log("🖱️ Clicking Log In...");
+  await page.evaluate(() => {
+    const btns = Array.from(document.querySelectorAll("button"));
+    const loginBtn =
+      btns.find((b) => /log in/i.test(b.innerText)) ||
+      btns.find((b) => /login/i.test(b.innerText));
+    if (loginBtn) loginBtn.click();
+  });
+
+  console.log("⏳ Waiting for portal redirect...");
   try {
     await page.waitForNavigation({ waitUntil: "networkidle2", timeout: 60000 });
+    console.log("✅ Logged in successfully!");
   } catch {
-    console.warn("⚠️ Navigation timeout — continuing anyway");
+    console.warn("⚠️ Login may have succeeded silently — continuing...");
   }
 
-  // --- ANALYTICS ---
+  // === STEP 3: ANALYTICS ===
   console.log("📊 Navigating to analytics...");
   await page.goto(ANALYTICS_URL, { waitUntil: "networkidle2" });
 
   console.log("🕵️ Monitoring all network events for 2 minutes...");
-  await new Promise(r => setTimeout(r, 120000));
+  await new Promise((r) => setTimeout(r, 120000));
 
   console.log(`💾 Captured ${captured.length} Power BI network events`);
   fs.writeFileSync("deep-capture.json", JSON.stringify(captured, null, 2));
+
   await browser.close();
   console.log("✅ Done. Results saved to deep-capture.json");
 }
 
-deepCapture().catch(e => console.error("❌ Error:", e));
+deepCapture().catch((e) => console.error("❌ Error:", e));
