@@ -27,15 +27,19 @@ async function importToSupabase() {
   }
 
   console.log(`🧾 Preparing to insert ${rows.length} rows...`);
-  const { data: inserted, error } = await supabase
-    .from("powerbi_semantic_model")
-    .upsert(rows, { onConflict: ["dataset_id", "visual_id", "entity_name"] });
+  const { error, count } = await supabase
+  .from("powerbi_semantic_model")
+  .upsert(rows, { 
+    onConflict: ["dataset_id", "visual_id", "entity_name"],
+    count: "exact" // count how many rows were affected
+  });
 
   if (error) {
     console.error("❌ Insert error:", error);
   } else {
-    console.log(`✅ Successfully imported ${inserted.length} rows into powerbi_semantic_model`);
+    console.log(`✅ Successfully imported or updated ${rows.length} rows into powerbi_semantic_model`);
   }
+
 }
 
 importToSupabase();
