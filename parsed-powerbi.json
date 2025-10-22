@@ -1,0 +1,570 @@
+{
+  "62b5ab65-6f9b-4e2b-86a4-d583634c9de7": {
+    "cb60e2ead4176e13871d": {
+      "automation BookingSourceSummary": {
+        "columns": [
+          "WeekStartDate",
+          "BookingSourceLegend"
+        ],
+        "measures": [
+          "Automation_Rate2"
+        ]
+      },
+      "MonthsBack": {
+        "columns": [
+          "WeekStartDate",
+          "BookingSourceLegend"
+        ],
+        "measures": [
+          "Automation_Rate2"
+        ]
+      }
+    },
+    "ba2b7d8faca85646000e": {
+      "automation BookingSourceSummary": {
+        "columns": [
+          "WeekStartDate",
+          "CompanyName"
+        ],
+        "measures": [
+          "Total_Automation_CompletedBookings"
+        ]
+      },
+      "MonthsBack": {
+        "columns": [
+          "WeekStartDate",
+          "CompanyName"
+        ],
+        "measures": [
+          "Total_Automation_CompletedBookings"
+        ]
+      }
+    }
+  },
+  "7302666e-8a3e-413f-b506-a71a6e9b7023": {
+    "100a8575d6c0026693b0": {
+      "accounts Accounts_AccountInvoices": {
+        "columns": [
+          "CustomerName",
+          "CompanyName"
+        ],
+        "measures": [
+          "DynamicTopNCustomersProfitMargin",
+          "DynamicTopNCustomersPriceNew"
+        ]
+      },
+      "MonthsBack": {
+        "columns": [
+          "CustomerName",
+          "CompanyName"
+        ],
+        "measures": [
+          "DynamicTopNCustomersProfitMargin",
+          "DynamicTopNCustomersPriceNew"
+        ]
+      },
+      "Top N Customers": {
+        "columns": [
+          "CustomerName",
+          "CompanyName"
+        ],
+        "measures": [
+          "DynamicTopNCustomersProfitMargin",
+          "DynamicTopNCustomersPriceNew"
+        ]
+      }
+    },
+    "c56c185d852ab42ed0d2": {
+      "accounts Accounts_AccountInvoices": {
+        "columns": [
+          "MonthYear"
+        ],
+        "measures": [
+          "Total price",
+          "Total profit",
+          "Profitability"
+        ]
+      },
+      "MonthsBack": {
+        "columns": [
+          "MonthYear"
+        ],
+        "measures": [
+          "Total price",
+          "Total profit",
+          "Profitability"
+        ]
+      },
+      "Top N Customers": {
+        "columns": [
+          "MonthYear"
+        ],
+        "measures": [
+          "Total price",
+          "Total profit",
+          "Profitability"
+        ]
+      }
+    },
+    "05e9364e674321972d63": {
+      "accounts Accounts_AccountInvoices": {
+        "columns": [
+          "CustomerName",
+          "CompanyName"
+        ],
+        "measures": [
+          "ACC Profitability",
+          "DynamicBottomNCustomersPrice"
+        ]
+      },
+      "MonthsBack": {
+        "columns": [
+          "CustomerName",
+          "CompanyName"
+        ],
+        "measures": [
+          "ACC Profitability",
+          "DynamicBottomNCustomersPrice"
+        ]
+      },
+      "Top N Customers": {
+        "columns": [
+          "CustomerName",
+          "CompanyName"
+        ],
+        "measures": [
+          "ACC Profitability",
+          "DynamicBottomNCustomersPrice"
+        ]
+      }
+    },
+    "337e4d9660a0057b1c00": {
+      "accounts Accounts_AccountInvoices": {
+        "columns": [
+          "MonthYear"
+        ],
+        "measures": [
+          "Profitability",
+          "Total profit",
+          "Total price"
+        ]
+      },
+      "MonthsBack": {
+        "columns": [
+          "MonthYear"
+        ],
+        "measures": [
+          "Profitability",
+          "Total profit",
+          "Total price"
+        ]
+      },
+      "Top N Customers": {
+        "columns": [
+          "MonthYear"
+        ],
+        "measures": [
+          "Profitability",
+          "Total profit",
+          "Total price"
+        ]
+      }
+    }
+  },
+  "e3eaa59b-411a-4372-88ea-05a334605cab": {
+    "2fe48e8236707d3e97bb": {
+      "Customers_CustomerBookingsByMonth": {
+        "columns": [],
+        "measures": []
+      },
+      "LocalDateTable_3fbd4050-ef1d-47a9-8d46-be3dd101682c": {
+        "columns": [],
+        "measures": []
+      }
+    },
+    "c4d51ead19c103025104": {
+      "Customers_CustomerBookingsByMonth": {
+        "columns": [],
+        "measures": [
+          "AvgJobs"
+        ]
+      },
+      "LocalDateTable_3fbd4050-ef1d-47a9-8d46-be3dd101682c": {
+        "columns": [],
+        "measures": [
+          "AvgJobs"
+        ]
+      }
+    }
+  },
+  "e2b78118-6756-48b5-8dbc-b5eb1f304d61": {
+    "6458b002946eacf43e95": {
+      "businessHealth Business_InvoicesPaidUnpaid": {
+        "columns": [],
+        "measures": []
+      }
+    },
+    "575aa8677bafbbb8802b": {
+      "businessHealth Business_InvoicesPaidUnpaid": {
+        "columns": [],
+        "measures": []
+      }
+    },
+    "ebdf92e8c158c7b6b9b7": {
+      "businessHealth Business_InvoicesPaidUnpaid": {
+        "columns": [
+          "CompanyName",
+          "Invoice date",
+          "CustomerName",
+          "InvoiceNumber",
+          "Status"
+        ],
+        "measures": []
+      }
+    },
+    "9deed582a7f7b856e7cb": {
+      "businessHealth Business_InvoicesPaidUnpaid": {
+        "columns": [],
+        "measures": []
+      }
+    }
+  },
+  "47074e63-25cf-4ea1-8aa2-cb3376311457": {
+    "42147d8b4166cc035081": {
+      "customerService BookingServiceDetailed": {
+        "columns": [
+          "Days",
+          "Hour12Format",
+          "BookingGroup"
+        ],
+        "measures": []
+      },
+      "Number of weeks": {
+        "columns": [
+          "Days",
+          "Hour12Format",
+          "BookingGroup"
+        ],
+        "measures": []
+      },
+      "Number of months": {
+        "columns": [
+          "Days",
+          "Hour12Format",
+          "BookingGroup"
+        ],
+        "measures": []
+      },
+      "BookingsSlider": {
+        "columns": [
+          "Days",
+          "Hour12Format",
+          "BookingGroup"
+        ],
+        "measures": []
+      }
+    },
+    "38c3fa9e2106600e240a": {
+      "customerService BookingServiceDetailed": {
+        "columns": [
+          "BookingGroup",
+          "BookedAtTimeWeek"
+        ],
+        "measures": [
+          "Bookings"
+        ]
+      },
+      "Number of weeks": {
+        "columns": [
+          "BookingGroup",
+          "BookedAtTimeWeek"
+        ],
+        "measures": [
+          "Bookings"
+        ]
+      },
+      "Number of months": {
+        "columns": [
+          "BookingGroup",
+          "BookedAtTimeWeek"
+        ],
+        "measures": [
+          "Bookings"
+        ]
+      },
+      "BookingsSlider": {
+        "columns": [
+          "BookingGroup",
+          "BookedAtTimeWeek"
+        ],
+        "measures": [
+          "Bookings"
+        ]
+      }
+    },
+    "27304a94ea089d730512": {
+      "customerService BookingServiceDetailed": {
+        "columns": [
+          "PickupLatitude",
+          "PickupLongitude"
+        ],
+        "measures": [
+          "Bookings"
+        ]
+      },
+      "Number of weeks": {
+        "columns": [
+          "PickupLatitude",
+          "PickupLongitude"
+        ],
+        "measures": [
+          "Bookings"
+        ]
+      },
+      "Number of months": {
+        "columns": [
+          "PickupLatitude",
+          "PickupLongitude"
+        ],
+        "measures": [
+          "Bookings"
+        ]
+      },
+      "BookingsSlider": {
+        "columns": [
+          "PickupLatitude",
+          "PickupLongitude"
+        ],
+        "measures": [
+          "Bookings"
+        ]
+      }
+    }
+  },
+  "9aef244f-d5a4-47ea-b02a-e9cdf59627d2": {
+    "36e1ba83200a552ec9ec": {
+      "drivers LoyalDrivers": {
+        "columns": [
+          "Driver"
+        ],
+        "measures": [
+          "Revenue"
+        ]
+      }
+    },
+    "3ab550f323c223200186": {
+      "drivers LoyalDrivers": {
+        "columns": [
+          "Driver"
+        ],
+        "measures": [
+          "Days1",
+          "Revenue"
+        ]
+      }
+    }
+  },
+  "98b5ceb1-896d-49dd-8c5a-3dbfac9e3269": {
+    "f4d0400fc6186fd02055": {
+      "app AppBookingsPerc": {
+        "columns": [
+          "WeekStartDate"
+        ],
+        "measures": [
+          "Total app bookings"
+        ]
+      },
+      "DateTable": {
+        "columns": [
+          "WeekStartDate"
+        ],
+        "measures": [
+          "Total app bookings"
+        ]
+      }
+    },
+    "3da5b21a4ca29192ab97": {
+      "app AppJobsGoodBad": {
+        "columns": [
+          "WeekStartDate"
+        ],
+        "measures": []
+      },
+      "DateTable": {
+        "columns": [
+          "WeekStartDate"
+        ],
+        "measures": []
+      }
+    },
+    "22a4809b91800d2e396d": {
+      "app AppJobsGoodBad": {
+        "columns": [
+          "WeekStartDate",
+          "Jobs"
+        ],
+        "measures": []
+      },
+      "DateTable": {
+        "columns": [
+          "WeekStartDate",
+          "Jobs"
+        ],
+        "measures": []
+      }
+    },
+    "db7353b8194a229f1a4b": {
+      "app AppBookingsPerc": {
+        "columns": [
+          "WeekStartDate"
+        ],
+        "measures": [
+          "App rate"
+        ]
+      },
+      "DateTable": {
+        "columns": [
+          "WeekStartDate"
+        ],
+        "measures": [
+          "App rate"
+        ]
+      }
+    }
+  },
+  "3c54d1a7-0d2a-4fa4-873a-41341979cca0": {
+    "de00c1eaba84f8616666": {
+      "Phantom_CallsAnswered4Weeks": {
+        "columns": [
+          "ShiftHour",
+          "DayType"
+        ],
+        "measures": [
+          "Total answered"
+        ]
+      },
+      "DateTable": {
+        "columns": [
+          "ShiftHour",
+          "DayType"
+        ],
+        "measures": [
+          "Total answered"
+        ]
+      },
+      "tableau Phantom_CallList_Powerbi_Aggr": {
+        "columns": [
+          "ShiftHour",
+          "DayType"
+        ],
+        "measures": [
+          "Total answered"
+        ]
+      }
+    },
+    "dea3b30a0e472aa0c1c4": {
+      "Phantom_CallRangeAndAvailableAgents": {
+        "columns": [
+          "ShiftTime"
+        ],
+        "measures": [
+          "Avg available agents",
+          "Avg total answered"
+        ]
+      },
+      "DateTable": {
+        "columns": [
+          "ShiftTime"
+        ],
+        "measures": [
+          "Avg available agents",
+          "Avg total answered"
+        ]
+      },
+      "tableau Phantom_CallList_Powerbi_Aggr": {
+        "columns": [
+          "ShiftTime"
+        ],
+        "measures": [
+          "Avg available agents",
+          "Avg total answered"
+        ]
+      }
+    },
+    "f7d305f63ba2501c81e3": {
+      "Phantom_AverageWait": {
+        "columns": [
+          "HourOnly",
+          "Days"
+        ],
+        "measures": [
+          "Avg wait"
+        ]
+      },
+      "DateTable": {
+        "columns": [
+          "HourOnly",
+          "Days"
+        ],
+        "measures": [
+          "Avg wait"
+        ]
+      },
+      "tableau Phantom_CallList_Powerbi_Aggr": {
+        "columns": [
+          "HourOnly",
+          "Days"
+        ],
+        "measures": [
+          "Avg wait"
+        ]
+      }
+    }
+  },
+  "30fd4c70-a83e-4fbe-ad16-779254a65d0e": {
+    "994c0080036192e5b52e": {
+      "bookings BookingsMonthlyGrowth": {
+        "columns": [
+          "Year",
+          "MonthAbbr"
+        ],
+        "measures": [
+          "Number of jobs1"
+        ]
+      }
+    },
+    "c3a07a262c5858025c06": {
+      "bookings BookingsMonthlyGrowth": {
+        "columns": [
+          "BookingArchiveTimeMonth",
+          "Booking status"
+        ],
+        "measures": [
+          "BookingStatusPct_NoCompleted"
+        ]
+      }
+    },
+    "49e279797b7da600b67e": {
+      "bookings BookingsMonthlyGrowth": {
+        "columns": [
+          "Year",
+          "MonthAbbr"
+        ],
+        "measures": [
+          "Total gross bookings"
+        ]
+      }
+    },
+    "bbcff6ade576081c12ad": {
+      "bookings BookingsMonthlyAggregatorShares": {
+        "columns": [
+          "CompanyName",
+          "AggregatorName"
+        ],
+        "measures": [
+          "Number of jobs"
+        ]
+      }
+    }
+  }
+}
